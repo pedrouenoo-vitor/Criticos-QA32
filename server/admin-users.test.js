@@ -21,3 +21,19 @@ describe('Criação administrativa de usuários',()=>{
  it('não ignora falha parcial de perfil',async()=>{const f=fixture({profileError:{}});await f.handler(f.request,f.response);expect(f.response.code).toBe(409);expect(f.response.body.error).toContain('operador');});
  it('bloqueia origem diferente e métodos não autorizados',async()=>{const f=fixture();f.request.headers.origin='https://outro.example';await f.handler(f.request,f.response);expect(f.response.code).toBe(403);f.request.method='GET';await f.handler(f.request,f.response);expect(f.response.code).toBe(405);});
 });
+
+
+describe('Isolamento de integração Supabase QA32',()=>{
+ it('prioriza URL e chave QA32_* mesmo com integração antiga configurada',async()=>{
+  const used=[];
+  const service={auth:{getUser:async()=>({data:{user:{id:'admin'}}}),admin:{createUser:async()=>({data:{user:{id:'new-id',email:form.email}}})}},from:()=>({select:()=>({eq:()=>({single:async()=>({data:{role:'admin',active:true}})})}),update:()=>({eq:()=>({select:async()=>({data:[{id:'new-id'}]})})})})};
+  const caller={rpc:async()=>({error:null})};
+  const envWithIntegration={...env,SUPABASE_URL:'https://outro.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'old-secret',QA32_SUPABASE_URL:'https://qa32.supabase.co',QA32_SUPABASE_SERVICE_ROLE_KEY:'qa32-secret'};
+  const handler=makeCreateUserHandler({env:envWithIntegration,clientFactory:(url,key)=>{used.push([url,key]);return key==='qa32-secret'?service:caller;}});
+  const response={setHeader(){},status(n){this.code=n;return this;},json(v){this.body=v;return this;}};
+  await handler({method:'POST',headers:{authorization:'Bearer token',host:'qa.example.com',origin:'https://qa.example.com'},body:form},response);
+  expect(response.code).toBe(201);
+  expect(used[0]).toEqual(['https://qa32.supabase.co','qa32-secret']);
+  expect(used[1]).toEqual(['https://qa32.supabase.co','public-test']);
+ });
+});

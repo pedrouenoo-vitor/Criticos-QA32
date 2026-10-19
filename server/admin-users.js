@@ -7,10 +7,12 @@ export function makeCreateUserHandler({clientFactory=createClient,env=process.en
     if(req.method!=='POST') {res.setHeader('Allow','POST');return res.status(405).json({error:'Método não permitido.'});}
     const token=/^Bearer (.+)$/i.exec(req.headers.authorization||'')?.[1];
     if(!token) return res.status(401).json({error:'Entre novamente na sua conta.'});
-    const url=env.SUPABASE_URL||env.VITE_SUPABASE_URL;
+    // QA32_* evita credenciais de outra integração Supabase na Vercel.
+    // As variáveis próprias são sempre prioritárias, sem expor segredo ao frontend.
+    const url=env.QA32_SUPABASE_URL||env.SUPABASE_URL||env.VITE_SUPABASE_URL;
     const publicKey=env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    const secret=env.SUPABASE_SERVICE_ROLE_KEY;
-    if(!url||!publicKey||!secret) return res.status(503).json({error:'Configure SUPABASE_SERVICE_ROLE_KEY e a URL do projeto nas variáveis do servidor Vercel.'});
+    const secret=env.QA32_SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+    if(!url||!publicKey||!secret) return res.status(503).json({error:'Configure QA32_SUPABASE_URL e QA32_SUPABASE_SERVICE_ROLE_KEY na Vercel.'});
     if(req.headers.origin) {
       try {
         const origin=new URL(req.headers.origin);

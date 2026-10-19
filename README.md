@@ -115,3 +115,17 @@ Máximo de 367 dias por relatório na interface. Importações têm limite de 15
 `src/App.jsx`: telas principais. `src/components/Admin.jsx`: administração e relatórios. `ItemModal.jsx`: edição/liberação. `analytics.js`: indicadores e reconstrução histórica. `reports.js`: XLSX e impressão. `workspace.js`: configurações/perfis/consultas. `db.js`: CRUD. `server/admin-users.js`: autenticação e criação no servidor. `api/admin/users.js`: entrada da Function. `supabase/migrations/002_admin_productivity.sql`: atualização sem apagar itens.
 
 Veja **VALIDACAO.md** para resultados e limites. Fontes técnicas: documentação oficial Supabase Auth Admin/RLS e Vercel Functions.
+
+
+## Correção de autenticação administrativa — outubro de 2026
+
+Quando uma integração Supabase da Vercel fornece `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` de outro projeto, o formulário **Administrador → Usuários** pode retornar HTTP 401 (`Sessão inválida ou expirada`). A Function agora dá prioridade às variáveis **exclusivas** `QA32_SUPABASE_URL` e `QA32_SUPABASE_SERVICE_ROLE_KEY`, preservando as variáveis antigas como fallback.
+
+Na Vercel → Settings → Environment Variables, crie em **Production**:
+
+- `QA32_SUPABASE_URL` = `https://zlpmhafjnvpygaqrfdam.supabase.co`
+- `QA32_SUPABASE_SERVICE_ROLE_KEY` = valor da chave **service_role do mesmo projeto QA32**, mantida como segredo do servidor.
+
+Não use prefixo `VITE_` na chave administrativa. Não remova nem altere as variáveis gerenciadas pela integração antiga, e não execute novamente SQL de migração. Após salvar, faça um novo deployment da versão corrigida e entre novamente.
+
+A URL do frontend (`VITE_SUPABASE_URL`) e a chave pública (`VITE_SUPABASE_PUBLISHABLE_KEY`) devem continuar sendo do mesmo projeto QA32. Se persistir HTTP 401, conferir a chave `QA32_SUPABASE_SERVICE_ROLE_KEY`, a validade da sessão e os logs da Function.
