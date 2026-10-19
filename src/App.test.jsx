@@ -39,4 +39,8 @@ it('operador não recebe a navegação administrativa',async()=>{
  mocks.profile.role='operator';render(<Root/>);
  await screen.findByText('Rebite');
  expect(screen.queryByRole('button',{name:'Administrador',exact:true})).toBe(null);
+ expect(screen.queryByRole('button',{name:'Importar Excel',exact:true})).toBe(null);
+ expect(screen.queryByRole('button',{name:'Exportar Excel'})).toBe(null);
+ fireEvent.click(screen.getByRole('button',{name:'Ajuda'}));
+ expect(screen.queryByRole('button',{name:'Exportar base acessível'})).toBe(null);
 });
