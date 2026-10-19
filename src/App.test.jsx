@@ -1,13 +1,20 @@
 // @vitest-environment jsdom
 import React from 'react';
-import {it,expect,vi} from 'vitest';
-import {render,screen,fireEvent,waitFor} from '@testing-library/react';
-const mocks=vi.hoisted(()=>({save:vi.fn(async()=>{}),load:vi.fn(async()=>[{id:'test',version:1,lot:'001',material:'123',description:'Rebite',quantity:10,supplier:'ACME',unit:'PC',received_at:'2026-10-01',deadline:'2026-10-16'}])}));
-vi.mock('./db',()=>({configured:true,db:{auth:{getSession:async()=>({data:{session:{user:{id:'owner',email:'teste@example.com'}}}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe:()=>{}}}})}},loadItems:mocks.load,saveItem:mocks.save,deleteItem:vi.fn(),importItems:vi.fn()}));
+import {it,expect,vi,afterEach} from 'vitest';
+import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
+const mocks=vi.hoisted(()=>({save:vi.fn(async()=>{}),load:vi.fn(async()=>({items:[{id:'test',version:1,owner_id:'owner',lot:'001',material:'123',description:'Rebite',quantity:10,supplier:'ACME',unit:'PC',received_at:'2026-10-01',deadline:'2026-10-16'}],history:[],releases:[],settings:{comparison_days:15,attention_days:2,version:1}})),profile:{id:'owner',display_name:'Pedro',email:'teste@example.com',role:'admin',active:true}}));
+vi.mock('./db',()=>({configured:true,db:{auth:{getSession:async()=>({data:{session:{user:{id:'owner',email:'teste@example.com'}}}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe:()=>{}}}})}},saveItem:mocks.save,deleteItem:vi.fn(),importItems:vi.fn()}));
+vi.mock('./workspace',()=>({loadProfile:async()=>mocks.profile,loadWorkspace:mocks.load,loadProfiles:async()=>[mocks.profile],saveProfile:vi.fn(),saveSettings:vi.fn(),createUser:vi.fn()}));
 import Root from './App';
+afterEach(()=>{cleanup();mocks.profile.role='admin';localStorage.clear();});
 it('interface autenticada: carregar, filtrar, abrir formulário e salvar',async()=>{
  render(<Root/>);
  await screen.findByText('Rebite');
+ expect(screen.getByText('ITENS LIBERADOS')).toBeTruthy();
+ fireEvent.click(screen.getByLabelText('Ativar modo escuro'));
+ expect(document.documentElement.dataset.theme).toBe('dark');
+ fireEvent.click(screen.getByLabelText('Recolher menu lateral'));
+ expect(screen.getByLabelText('Expandir menu lateral')).toBeTruthy();
  fireEvent.change(screen.getByLabelText('Buscar'),{target:{value:'inexistente'}});
  expect(screen.getByText('Nenhum item nesta seleção')).toBeTruthy();
  fireEvent.click(screen.getByText('Limpar filtros'));
@@ -21,4 +28,15 @@ it('interface autenticada: carregar, filtrar, abrir formulário e salvar',async(
  await screen.findByText('Item salvo com sucesso.');
  fireEvent.click(screen.getByText('Importar Excel'));
  expect(screen.getByText('Traga seus recebimentos')).toBeTruthy();
+ fireEvent.click(screen.getByRole('button',{name:'Administrador',exact:true}));
+ expect(await screen.findByText('Produtividade da qualidade')).toBeTruthy();
+ fireEvent.click(screen.getByRole('button',{name:'Usuários',exact:true}));
+ expect(screen.getByText('Criar novo usuário')).toBeTruthy();
+ fireEvent.click(screen.getByRole('button',{name:'Indicadores',exact:true}));
+ expect(screen.getByLabelText('Dias de comparação dos cards').value).toBe('15');
+});
+it('operador não recebe a navegação administrativa',async()=>{
+ mocks.profile.role='operator';render(<Root/>);
+ await screen.findByText('Rebite');
+ expect(screen.queryByRole('button',{name:'Administrador',exact:true})).toBe(null);
 });

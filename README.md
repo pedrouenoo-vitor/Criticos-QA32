@@ -1,162 +1,117 @@
-# QA32 · Vercel + Supabase
+# QA32 V2 — Administração, produtividade e indicadores
 
-Versão web do controle de qualidade, pronta para abrir no VS Code e publicar pela Vercel. Interface React/Vite, banco PostgreSQL e login Supabase, importação/exportação XLSX. O Streamlit foi substituído por uma aplicação web estática; não é necessário hospedar um servidor Python.
+Aplicativo React/Vite para Vercel, Supabase Auth + PostgreSQL, XLSX e relatórios gerenciais. Evolução do projeto QA32 já entregue. O código e a migração estão preparados; sua implantação existente ainda não foi alterada nesta entrega.
 
-**O pacote está pronto; a criação do projeto na sua conta Supabase e a publicação na Vercel ainda precisam ser executadas. Não há credenciais ou serviços remotos já configurados neste ZIP.**
+**Já tem o aplicativo funcionando? Comece por [ATUALIZAR_PARA_V2.md](ATUALIZAR_PARA_V2.md).** Não execute o schema de instalação inicial sobre o banco atual e não reimporte os lotes já salvos.
 
-## Caminho mais direto
+## Recursos da V2
 
-1. Criar um projeto no Supabase e executar o arquivo `supabase/schema.sql`.
-2. Criar seu usuário em Authentication → Users.
-3. Enviar o código ao GitHub e importar esse repositório na Vercel.
-4. Cadastrar na Vercel as duas variáveis do `.env.example` e publicar.
-5. Entrar no site e importar o arquivo original em Importar Excel.
+- Área Administrador protegida pelo banco e pela Function do servidor.
+- Criação de usuários no Supabase Auth, perfis administrador/operador e ativação/desativação de acesso.
+- Proteção contra rebaixar ou desativar o último administrador ativo.
+- Atribuição de itens a operadores, mantendo o proprietário original.
+- Produtividade por responsável: lotes, quantidades por unidade, dias com liberação, média diária, prazo médio e SLA.
+- Ranking, tendência diária e filtros por data e responsável, incluindo contas sem liberações.
+- Relatório gerencial XLSX com cinco abas e impressão para PDF pelo navegador.
+- Registro de cada ciclo de liberação e autoria autenticada. Histórico V1 preservado sem autoria presumida.
+- Cinco cards: atrasados, vence hoje, atenção, em dia e liberados; percentual de variação por janela ajustável no administrador, inicialmente 15 dias.
+- Menu lateral recolhível e modo claro/escuro com preferências guardadas neste navegador.
+- Cadastro, edição, importação dos 106 lotes originais, exportação XLSX, filtros e auditoria da versão anterior.
 
-## 1. Criar o banco Supabase
+## Instalação em um Supabase NOVO
 
-1. Entre em https://supabase.com/dashboard e escolha **New project** na sua organização.
-2. Dê um nome, por exemplo `criticos-qa32`, escolha a região adequada e uma senha forte para o banco. Guarde a senha no seu gerenciador; ela não será colocada no site.
-3. Aguarde a criação do projeto.
-4. Abra **SQL Editor → New query**.
-5. No VS Code abra `supabase/schema.sql`, copie o conteúdo inteiro e cole no editor SQL.
-6. Clique **Run**. Esse arquivo cria `qa_items`, `qa_history`, índices, validações, gatilhos e políticas RLS. Execute uma vez num projeto novo. Uma segunda execução informa que as tabelas já existem; não apague tabelas para tentar novamente.
-7. Em **Table Editor**, confirme a existência das duas tabelas e que RLS está ativado.
+1. Crie o projeto e execute **`supabase/schema.sql`** uma vez.
+2. Execute **`supabase/migrations/002_admin_productivity.sql`**.
+3. Crie seu usuário inicial em Authentication → Users.
+4. Ajuste seu e-mail em **`supabase/003_primeiro_administrador.sql`** e execute esse script no SQL Editor.
+5. Cadastre as variáveis da tabela abaixo na Vercel e publique o código.
+6. Entre no aplicativo e importe `dados_originais/CRITICOS QA32.XLSX` se estiver começando sem dados.
 
-O script inclui uma transação e não contém comandos para apagar tabelas. Alterações posteriores de esquema devem ser feitas por migrações específicas.
+Em banco EXISTENTE, execute apenas a migração 002 e a promoção do administrador 003, conforme o guia de atualização.
 
-## 2. Criar seu acesso
+## Variáveis
 
-1. Abra **Authentication → Users → Add user → Create new user**.
-2. Informe seu e-mail e uma senha forte. Para uma conta criada por você como administrador, use a opção de confirmar automaticamente o e-mail, se disponível.
-3. Em **Authentication → Sign In / Providers**, confirme que o provedor de e-mail está habilitado. Os nomes podem variar conforme a versão do painel.
-4. Se você não quiser permitir criação de contas por chamadas externas à API, desabilite **Allow new users to sign up**. A interface já não oferece cadastro público.
-5. Para trocar uma senha esquecida nesta versão, use o gerenciamento administrativo do Supabase. A interface não implementa recuperação por e-mail.
+| Variável | Onde usar | Tipo |
+|---|---|---|
+| `VITE_SUPABASE_URL` | Frontend/build | Config, URL do projeto |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Frontend/build | Config, chave publishable/anon |
+| `SUPABASE_SERVICE_ROLE_KEY` | SOMENTE Function Node do servidor | Secret, chave administrativa secret/service_role |
+| `SUPABASE_URL` | Servidor, opcional | Mesma URL; se ausente, usa VITE_SUPABASE_URL |
+| `APP_ORIGIN` | Servidor, opcional | Domínio definitivo, sem caminho; se ausente, compara origem com o host da requisição |
 
-**Cada conta possui sua própria fila.** Outro login não vê seus lotes. Esta entrega não tem equipe compartilhada, convites ou perfis de administrador na interface. Se precisar de uma fila única para vários inspetores, será necessário adicionar organizações, membros e políticas de acesso; não desative RLS para compartilhar dados.
+Nunca coloque chave administrativa em variáveis `VITE_*`. O build bloqueia uma chave `sb_secret_` ou JWT service_role usada acidentalmente como chave pública. O segredo real fica só em `SUPABASE_SERVICE_ROLE_KEY`, sem prefixo VITE.
 
-## 3. Obter as duas configurações
+Se o projeto usa apenas contas administradas, desabilite a criação pública de contas nas opções de Authentication. A interface não oferece cadastro aberto. A API de criação verifica o JWT no Supabase, consulta o perfil ativo, valida os campos e aplica limite de dez tentativas por administrador/hora antes de criar uma conta. A senha inicial é escolhida pelo administrador e não é retornada nem gravada na auditoria. Cada usuário pode alterá-la em **Minha conta**; a troca inicial é recomendada, mas não é forçada nesta versão.
 
-No painel Supabase procure o endereço do projeto em **Connect / Project settings → Data API**, e a chave em **Project settings → API Keys**:
+## Desenvolvimento e testes
 
-| Variável | Valor |
-|---|---|
-| `VITE_SUPABASE_URL` | URL HTTPS do projeto, como `https://xxxxxxxx.supabase.co` |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Chave **publishable**, normalmente iniciada por `sb_publishable_`; projetos antigos também aceitam a chave pública `anon` |
-
-A chave pública identifica o projeto; o acesso aos registros é autorizado pela sessão do usuário e pelas políticas RLS. **Nunca use `service_role`, `sb_secret_`, senha do banco ou connection string em variáveis `VITE_*`.** Essas variáveis entram no JavaScript público gerado pelo build.
-
-## 4. Executar no VS Code antes de publicar
-
-1. Instale Node.js **22 ou 24 LTS**: https://nodejs.org . Reabra o VS Code após instalar.
-2. Extraia o ZIP e abra a pasta que contém `package.json`.
-3. Copie `.env.example` para `.env.local` e substitua os dois valores pelos do seu projeto.
-4. No terminal da pasta, execute:
+Use Node.js **22 ou 24**. Instale com `npm ci` a partir desta pasta. Crie `.env.local` copiando `.env.example` e preencha com seu ambiente de teste.
 
 ```powershell
 npm ci
 npm run dev
 ```
 
-5. Abra o endereço informado, normalmente `http://127.0.0.1:5173`.
-6. Entre usando a conta criada no passo 2.
-
-Se as variáveis estiverem ausentes, o aplicativo exibe uma tela de configuração. Depois de editar `.env.local`, pare com Ctrl+C e reinicie `npm run dev`.
-
-## 5. Subir para o GitHub
-
-1. Crie um repositório **privado**, por exemplo `criticos-qa32-web`.
-2. Na pasta do projeto, pelo terminal ou pelo painel Controle do Código-Fonte do VS Code, inicialize Git e faça commit dos arquivos.
-3. Envie o código para o repositório pelo VS Code ou usando os comandos mostrados pelo GitHub para um repositório novo.
-4. Inclua `package-lock.json`, `vercel.json` e `supabase/schema.sql`.
-5. Não envie `.env.local`, `node_modules`, `dist` nem `dados_originais`. O `.gitignore` já exclui esses caminhos.
-
-O arquivo Excel real é entregue em `dados_originais/CRITICOS QA32.XLSX` apenas no ZIP. Ele não é incluído na aplicação pública nem no build. Guarde uma cópia local para a importação.
-
-## 6. Publicar na Vercel
-
-1. Entre em https://vercel.com e escolha **Add New → Project**.
-2. Conecte sua conta GitHub e selecione o repositório do passo 5.
-3. Confira:
-
-| Configuração | Valor |
-|---|---|
-| Framework Preset | Vite |
-| Root Directory | Pasta que contém `package.json`; se enviar o conteúdo à raiz do repositório, use a raiz |
-| Build Command | `npm run build` |
-| Output Directory | `dist` |
-| Node.js | 22 ou 24 |
-
-4. Antes de publicar, abra **Environment Variables** e adicione as duas variáveis da seção 3 em **Production**. Se quiser usar previews, configure também o ambiente Preview, preferencialmente com um projeto Supabase de teste.
-5. Clique **Deploy**.
-6. Abra a URL gerada e entre com sua conta. A URL da interface pode ser pública, mas os dados exigem autenticação e as políticas do banco.
-7. Se alterar as variáveis depois, faça **Redeploy**: variáveis Vite são incorporadas no build.
-8. Em Supabase → Authentication → URL Configuration, ajuste o **Site URL** para o endereço definitivo da Vercel. O login por senha atual não depende de redirecionamento; a configuração prepara o projeto para futuros fluxos de e-mail.
-
-Não é necessário importar o banco na Vercel. A Vercel hospeda o site; os registros ficam no seu projeto Supabase.
-
-## 7. Importar seus 106 lotes
-
-1. Entre no site com o usuário que será proprietário dos registros.
-2. Abra **Importar Excel**.
-3. Selecione `dados_originais/CRITICOS QA32.XLSX`.
-4. Confira a prévia: na primeira importação, **106 registros válidos / 106 novos**.
-5. Confirme. Repetir a importação não duplica lote + material nem substitui edições já feitas.
-
-QA32 é a lista mestre. SINALIZADOR CRITICO complementa 99 lotes. Os sete lotes adicionais da QA32 são preservados. O resumo SINALIZADOR não alimenta os indicadores. Campos como estoque e cobertura são mantidos; os demais detalhes não mapeados permanecem no Excel original.
-
-Limite: arquivo de 15 MB e até **500 registros por importação**. Para bases maiores, divida a planilha. A consulta do painel pagina a API para carregar mais de 1.000 registros. A tela e exportação mantêm os registros carregados em memória; volumes industriais muito grandes exigem paginação e filtros no servidor.
-
-Datas de fórmulas são lidas de resultados calculados armazenados no XLSX. Quando o deadline não tem resultado disponível, calcula recebimento + prazo padrão (7 dias corridos, ajustável). Fórmulas arbitrárias não são executadas. Valores textuais são exportados como texto, sem criar fórmulas.
-
-## 8. Regras de trabalho
-
-- ATRASADO: deadline anterior a hoje.
-- VENCE HOJE: deadline igual a hoje.
-- ATENÇÃO: próximos 1 ou 2 dias, janela ajustável.
-- EM DIA: prazo posterior à janela de atenção.
-- SEM PRAZO: deadline ausente.
-- LIBERADO: data de liberação preenchida; exige responsável.
-
-Ordenação: atrasados → vence hoje → atenção → em dia → sem prazo → liberados; deadline mais antigo primeiro dentro do grupo. A contagem usa dias corridos e data de São Paulo, atualizada a cada minuto. O botão Atualizar busca as mudanças de outros acessos; não há assinatura Realtime nesta entrega.
-
-No cadastro, ajuste o deadline se mudar o recebimento. Para liberar, abra o lápis e informe data e responsável. Para reabrir, limpe a data. O texto LIB do SAP não significa liberação nesta aplicação. Indicadores, gráficos e exportação da fila respeitam os filtros; a ajuda oferece exportação completa.
-
-## 9. Banco e histórico
-
-`qa_items` guarda registros por proprietário; uma restrição impede duplicidade de proprietário + lote + material. RLS controla SELECT, INSERT, UPDATE e DELETE. A coluna version detecta edições concorrentes. Os gatilhos registram inclusões, alterações e exclusões em `qa_history`, com conteúdo anterior/novo.
-
-O histórico não pode ser editado pelos usuários comuns da API. A tela mostra as últimas 100 alterações do próprio usuário. Ele não substitui backups do Supabase e não oferece restauração automática. Configure os backups disponíveis no seu plano e faça exportações periódicas. A exclusão de uma conta pelo administrador elimina seus registros e histórico por associação à conta.
-
-## 10. Testes e build
+Vite executa a interface local. Para testar também `/api/admin/users`, use **`npx vercel dev`**, que executa as Vercel Functions, ou publique em um ambiente de teste da Vercel. O servidor Vite simples não executa o código da pasta api.
 
 ```powershell
-npm ci
 npm test
 npm run build
 ```
 
-Testes de domínio, importação da planilha real, formulário React e schema SQL. O teste PostgreSQL usa PGlite local para verificar CRUD, histórico, versão e isolamento entre duas identidades; não usa sua conta nem credenciais. Os testes de interface usam uma conexão simulada. O teste do arquivo original só é executado quando esse arquivo está presente localmente.
+Os testes de SQL usam PostgreSQL PGlite local; não acessam seu Supabase. Os testes React usam DOM simulado. Os testes da Function simulam Auth/API para validar autorização e tratamento de erros. O teste de 106 lotes usa o arquivo original incluso em `dados_originais`; no GitHub ele fica fora do repositório e esse teste é ignorado quando o arquivo não está presente.
 
-Veja `VALIDACAO.md` para o resultado e os limites da validação.
+## Vercel / GitHub
 
-## 11. Resolver problemas
+- Framework: **Vite**.
+- Root Directory: pasta com `package.json`, `api` e `vercel.json`.
+- Build: `npm run build`.
+- Output: `dist`.
+- Node: 22/24.
+- Envie código, `api`, `server`, `scripts`, migrações e `package-lock.json`.
+- Não envie `.env.local`, `node_modules`, `dist` ou arquivos reais de `dados_originais`.
+- Depois de mudar variáveis, gere um novo deployment.
 
-| Problema | Ação |
-|---|---|
-| `npm` não é reconhecido | Instale Node LTS e reabra o terminal. |
-| PowerShell bloqueia `npm.ps1` | Use `npm.cmd ci` / `npm.cmd run dev`, ou abra o terminal Prompt de Comando. |
-| Tela de configuração na Vercel | Confira nomes e ambiente das variáveis e faça Redeploy. |
-| Invalid login credentials | Crie/confirme a conta no mesmo projeto Supabase configurado na URL. |
-| Tabela `qa_items` não encontrada | Execute `supabase/schema.sql` e confira o projeto selecionado. |
-| Permissão/RLS negada | Entre com uma conta e confirme que o script completo foi aplicado. Não desative as políticas. |
-| Dados não aparecem em outro usuário | Isolamento intencional por conta. Entre com o proprietário da importação. |
-| Outra sessão alterou o item | Feche o formulário, atualize a base, reabra e refaça a edição. |
-| Failed to fetch | Confira a URL, conexão e se o projeto Supabase está ativo. |
-| Deploy não encontra package.json | Ajuste Root Directory na Vercel. |
-| Erro no build | Use Node 22/24 e `npm ci` com o lockfile entregue. |
+O segredo é usado pela Vercel Function, sem servidor Python ou processo separado. O banco permanece no Supabase. Custos, limites e disponibilidade são os dos serviços contratados; não foram contratados novos serviços nesta entrega.
+
+## Permissões e dados
+
+| Operação | Operador ativo | Administrador ativo |
+|---|---|---|
+| Consultar/editar/liberar | Próprios itens e itens atribuídos | Todos os itens |
+| Excluir | Somente próprios itens | Todos os itens |
+| Atribuir inspeção | Não | Sim |
+| Gerenciar usuários/configurações | Não | Sim |
+| Produtividade consolidada | Não | Sim |
+
+A autorização é aplicada por RLS e gatilhos, não apenas ocultando botões. Um usuário não pode promover seu perfil pela API. Desativar um perfil bloqueia futuras leituras/gravações; isso não apaga dados que ele já tenha consultado. Administradores consultam todos os dados deste projeto; esta versão é para uma organização por projeto Supabase, sem multiempresa.
+
+O proprietário de um item permanece imutável. A atribuição dá ao operador acesso à inspeção daquele item. A autoria de uma nova liberação é o usuário conectado, gravada pelo banco, sem aceitar um ID forjado pelo cliente. Data de liberação retroativa é permitida se posterior ao recebimento; o histórico mantém também a data real da gravação. O relatório usa a data de liberação informada.
+
+`qa_releases` preserva a produção de itens excluídos. Reabrir anula o ciclo anterior nos indicadores; liberar novamente cria um ciclo válido. Correções de quantidades/datas exigem reabertura. O histórico preserva as alterações. Por rastreabilidade, não há exclusão de contas na interface; use desativação. A exclusão administrativa direta de usuários com registros de liberação pode ser impedida por vínculos do banco.
+
+Registros antigos com data de liberação são migrados como históricos, preservando o responsável textual e deixando o vínculo autenticado vazio. Importar uma planilha com liberações já concluídas segue a mesma regra. Nenhuma migração atribui produtividade antiga ao dono da conta sem evidência.
+
+## Metodologia
+
+- Cards: quantidade atual versus quantidade na posição registrada ao final de N dias atrás; padrão 15. O histórico da auditoria reconstrói a posição passada. Dias sem histórico não são inventados; base anterior inexistente ou zero resulta em Sem base quando não há percentual finito.
+- Os cards respeitam busca e fornecedor. A seleção de status afeta somente a fila, para que o card de liberados continue visível e útil.
+- Produtividade: ciclos válidos pela data de liberação, filtrados pelo período. Comparação com período imediatamente anterior de mesma duração.
+- SLA: lotes liberados até o deadline / lotes liberados com deadline. Sem deadline fica fora do denominador.
+- Tempo médio: dias corridos do recebimento à liberação. Média diária: lotes / todos os dias corridos do intervalo, incluindo zeros.
+- Quantidade: somada separadamente por unidade; nunca soma PC com KG.
+- Prazos e referência diária usam São Paulo e dias corridos. A data da tela é atualizada a cada minuto; o botão Atualizar busca mudanças de outros acessos.
+
+Configurações são globais ao projeto e persistem no Supabase. Tema e menu são preferências locais do navegador. A aplicação não usa Realtime: atualize a tela para consultar mudanças de outras pessoas.
+
+## Relatório gerencial
+
+Em Administrador → Produtividade, selecione datas e responsável. **Relatório XLSX** gera Resumo, Produtividade, Liberacoes, Tendencia e Metodologia. **Imprimir / PDF** abre um documento formatado para A4 paisagem; escolha Salvar como PDF no diálogo do navegador. Permita o popup do relatório, se necessário.
+
+Máximo de 367 dias por relatório na interface. Importações têm limite de 15 MB e 500 registros por vez. Consultas são paginadas na API, mas itens/histórico/liberações acessíveis são carregados em memória: bases muito grandes precisam de agregações e filtros no servidor. O histórico e o livro de liberações não substituem backups do banco. Configure backups no seu plano e mantenha exportações externas.
 
 ## Estrutura
 
-`src/App.jsx`: telas e formulários; `domain.js`: regras; `db.js`: acesso Supabase; `excel.js`: XLSX; `style.css`: layout responsivo; `supabase/schema.sql`: banco; `vercel.json`: publicação; `.env.example`: nomes das variáveis.
+`src/App.jsx`: telas principais. `src/components/Admin.jsx`: administração e relatórios. `ItemModal.jsx`: edição/liberação. `analytics.js`: indicadores e reconstrução histórica. `reports.js`: XLSX e impressão. `workspace.js`: configurações/perfis/consultas. `db.js`: CRUD. `server/admin-users.js`: autenticação e criação no servidor. `api/admin/users.js`: entrada da Function. `supabase/migrations/002_admin_productivity.sql`: atualização sem apagar itens.
 
-Documentação oficial: https://vercel.com/docs/frameworks/frontend/vite · https://supabase.com/docs/guides/database/postgres/row-level-security · https://supabase.com/docs/reference/javascript/auth-signinwithpassword
+Veja **VALIDACAO.md** para resultados e limites. Fontes técnicas: documentação oficial Supabase Auth Admin/RLS e Vercel Functions.

@@ -1,31 +1,40 @@
-# Validação da versão Vercel + Supabase
+# Validação da V2
 
-Data: 16/10/2026. Ambiente de execução: Linux, Node.js 24.19.0 e npm 11.9.0.
+Data: 17/10/2026. Ambiente local: Linux, Node.js 24.19.0 e npm 11.9.0. Nenhuma alteração foi aplicada ao seu Supabase, GitHub ou site Vercel durante esta entrega.
 
-## Resultados
+## Testes automatizados
 
-- `npm test`: **18 testes aprovados**, em quatro arquivos. Última execução: 2,21 s.
-- `npm run build`: build de produção concluído com Vite 7.3.7, React e todas as integrações habilitadas por variáveis de teste sem credenciais reais.
-- `npm audit --omit=dev`: nenhuma vulnerabilidade conhecida reportada nas dependências de produção na data da entrega.
-- A dependência UUID de ExcelJS foi fixada por override em 11.1.1; testes de importação e build passaram com essa versão.
-- Arquivo original: 106 lotes importados, enriquecimento de 99 pelo sinalizador, sem duplicidades e sem presumir liberação pelo texto SAP.
+**48 testes aprovados, em nove arquivos.** Última execução: 2,94 segundos.
 
-## Cobertura
+| Área | Cobertura |
+|---|---|
+| Regras da fila | Cinco limites de prazo, liberação, ausência de prazo, ordenação, filtros, validações e datas |
+| Indicadores | Variação positiva/negativa, base zero, reconstrução por histórico, corte de data e filtros |
+| Produtividade | Períodos contíguos, lotes válidos, anulação de ciclos, quantidades por unidade, SLA, ausência de deadline, usuários com produção zero |
+| Relatórios | Estrutura e conteúdo do XLSX de cinco abas; escape de conteúdo no HTML de impressão |
+| Excel original | 106 lotes, enriquecimento de 99, zeros à esquerda, fórmulas sem cache e formatos inválidos |
+| Interface React | Carregar, buscar, cadastrar, card de liberados, modo escuro, recolher menu, navegação administrativa e ocultação para operador |
+| Formulário de liberação | Autoria autenticada no envio, ausência de controles administrativos para operador, campos de conclusão bloqueados e reabertura |
+| Banco V1 | CRUD, versões, auditoria e isolamento original |
+| Migração V2 em PostgreSQL local | Preservação e reexecução; perfil administrativo; dados legados sem autoria presumida; atribuição; RLS; bloqueio de autoelevação; desativação; proteção do último admin; autoria forjada substituída pelo banco; reabertura; retenção da produtividade após exclusão; limite de criação |
+| Function de usuários | Sem token, token inválido, operador, desativado, senha inválida, limite, origem indevida, método indevido, sucesso e erro parcial de perfil |
+| Chaves | Build rejeita secret/service_role em variável pública, sem imprimir o valor; permite chave publishable |
 
-12 testes das regras: limites de atraso/hoje/atenção/em dia, liberação, ausência de prazo, ordenação, filtros, datas inválidas, quantidade inválida e exigência de responsável.
+Os testes do banco executam o SQL com PGlite, uma implementação local de PostgreSQL. As chamadas de Supabase Auth na Function são simuladas; nenhuma conta real foi criada. Os testes de interface usam DOM simulado.
 
-4 testes de Excel: planilha real, datas seriais e brasileiras, zeros à esquerda, fórmula sem cache e rejeição de arquivo sem colunas reconhecidas.
+## Build e dependências
 
-1 teste de interface React em DOM simulado: carregar registros, filtrar, limpar filtros, abrir cadastro, salvar via conexão simulada e abrir a importação.
-
-1 teste do schema em PostgreSQL local PGlite: executar SQL, inserir/editar/excluir, registrar histórico, incrementar versão, rejeitar versão antiga, impedir escrita direta no histórico e testar isolamento RLS entre duas identidades.
+- Build de produção com configurações públicas de teste: concluído.
+- Administração e Excel são carregados em módulos sob demanda.
+- Auditoria de dependências de produção: nenhuma vulnerabilidade conhecida reportada na execução desta entrega.
+- Validação adicional do bundle: o marcador de segredo usado apenas no ambiente do servidor não apareceu nos arquivos públicos gerados.
 
 ## Limites
 
-O projeto remoto Supabase não foi criado e a Vercel não foi publicada nesta execução. Não foram fornecidas contas conectadas ou configurações do usuário. A integração real de login, rede e API Supabase deve ser confirmada após seguir o README. Testes locais de PostgreSQL não equivalem a uma implantação Supabase online.
+Não houve acesso autenticado à infraestrutura do usuário nem implantação remota. A criação real de contas depende da chave administrativa correta no servidor Vercel e das políticas do projeto Supabase. Confirme o fluxo em uma conta de teste após a migração.
 
-Não houve validação visual em navegador real, execução nativa no Windows ou teste de carga. O SQL foi validado localmente, mas o ambiente administrado do Supabase poderá ter configurações ou permissões particulares a verificar na implantação.
+Não houve inspeção visual em navegador real, teste nativo Windows ou teste de carga distribuída. Tema responsivo e estados foram exercitados em DOM simulado. O PDF usa o diálogo de impressão do navegador; o layout de impressão foi preparado em HTML/CSS, sem validar cada driver/navegador.
 
-O módulo ExcelJS gera um chunk de aproximadamente 937 kB (271 kB comprimido). É carregado sob demanda ao importar/exportar; o aviso de tamanho emitido pelo build não impede a publicação. A aparência usa fontes externas com fallback para fontes locais.
+O módulo ExcelJS gera um chunk maior que 500 kB, carregado sob demanda. O aviso de tamanho não impede o build. As consultas são paginadas na API, mas os dados acessíveis são reunidos em memória para os cálculos: volumes muito grandes exigem agregação/paginação no servidor.
 
-O aplicativo implementa fila privada por usuário; não uma fila compartilhada de equipe. O histórico permite consultar mudanças, sem restauração automática. Configuração de backups e disponibilidade depende do projeto Supabase contratado.
+Não há preenchimento retroativo de dados que não foram registrados. Os percentuais dos cards podem mostrar Sem base até formar histórico suficiente. Autoria V1/importada permanece separada da autoria autenticada V2.
