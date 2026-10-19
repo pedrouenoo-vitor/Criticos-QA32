@@ -7,6 +7,7 @@ export default function ItemModal({item,profile,profiles,busy,error,close,onSave
   const [form,setForm]=useState(item?{...item}:{lot:'',material:'',description:'',supplier:'',quantity:0,unit:'PC',received_at:todayBR(),deadline:addDays(todayBR(),7),released_at:'',responsible:'',notes:'',mrp_level:'',sap_status:'',stock:'',safety_stock:'',coverage_days:'',assigned_to:''});
   const [localError,setLocalError]=useState(''),[confirm,setConfirm]=useState(false);
   const locked=!!item?.released_at;
+  const readOnly=!!item&&profile.role!=='admin'&&item.owner_id!==profile.id;
   function record(reopen=false) {
     const data=Object.fromEntries(FIELDS.map(k=>[k,form[k]??'']));
     data.quantity=Number(data.quantity);
@@ -21,10 +22,11 @@ export default function ItemModal({item,profile,profiles,busy,error,close,onSave
     validate(data);return data;
   }
   function field(name,label,type='text',disabled=false) {
-    return <label key={name}>{label}<input type={type} value={form[name]??''} required={['lot','material','quantity','received_at'].includes(name)} disabled={disabled||busy} min={name==='quantity'?0:undefined} max={name==='released_at'?todayBR():undefined} step={type==='number'?'any':undefined} onChange={e=>setForm({...form,[name]:e.target.value})}/></label>;
+    return <label key={name}>{label}<input type={type} value={form[name]??''} required={['lot','material','quantity','received_at'].includes(name)} disabled={disabled||busy||readOnly} min={name==='quantity'?0:undefined} max={name==='released_at'?todayBR():undefined} step={type==='number'?'any':undefined} onChange={e=>setForm({...form,[name]:e.target.value})}/></label>;
   }
   return <div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true" aria-label={item?'Editar item':'Novo item'}><div className="panel-title"><h2>{item?'Editar / liberar material':'Novo recebimento'}</h2><button aria-label="Fechar formulário" disabled={busy} onClick={close}><X size={18}/></button></div>
     {(error||localError)&&<div role="alert" className="alert error">{localError||error}</div>}
+    {readOnly&&<div className="alert">Consulta somente leitura: este item pertence a outro usuário. Apenas quem cadastrou ou um administrador pode editar e liberar.</div>}
     {locked&&<div className="alert">Este item já foi liberado. Para corrigir quantidade, datas ou autoria, use Reabrir; o ciclo anterior será anulado no relatório.</div>}
     <form onSubmit={e=>{e.preventDefault();try{setLocalError('');onSave(record());}catch(err){setLocalError(err.message);}}}>
       <div className="form-grid">
@@ -38,9 +40,9 @@ export default function ItemModal({item,profile,profiles,busy,error,close,onSave
         {field('stock','Estoque','number')}{field('safety_stock','Estoque de segurança','number')}{field('coverage_days','Cobertura em dias','number')}
         {profile.role==='admin'&&<label>Atribuir inspeção a<select value={form.assigned_to||''} disabled={busy} onChange={e=>setForm({...form,assigned_to:e.target.value})}><option value="">Sem atribuição adicional</option>{profiles.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.display_name}</option>)}</select></label>}
       </div>
-      <label>Observações / referência de evidência<textarea rows="3" disabled={busy} value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></label>
+      <label>Observações / referência de evidência<textarea rows="3" disabled={busy||readOnly} value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></label>
       <p className="muted">{!item?'Salve o recebimento e depois abra o item para registrar uma liberação com autoria autenticada.':'A liberação será atribuída pelo banco ao usuário conectado. O proprietário do registro é preservado.'}</p>
-      <div className="actions"><button className="primary" disabled={busy}><Check size={16}/>Salvar item</button>{locked&&<button type="button" disabled={busy} onClick={()=>{try{setLocalError('');onSave(record(true));}catch(err){setLocalError(err.message);}}}><RotateCcw size={16}/>Reabrir item</button>}</div>
+      <div className="actions">{!readOnly&&<button className="primary" disabled={busy}><Check size={16}/>Salvar item</button>}{!readOnly&&locked&&<button type="button" disabled={busy} onClick={()=>{try{setLocalError('');onSave(record(true));}catch(err){setLocalError(err.message);}}}><RotateCcw size={16}/>Reabrir item</button>}</div>
     </form>
     {item&&(profile.role==='admin'||item.owner_id===profile.id)&&<div className="danger-zone"><label className="checkbox-label"><input type="checkbox" checked={confirm} onChange={e=>setConfirm(e.target.checked)}/>Confirmo excluir este registro</label><button className="danger" disabled={busy||!confirm} onClick={onDelete}><Trash2 size={16}/>Excluir item</button></div>}
   </section></div>;
