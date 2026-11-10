@@ -1,4 +1,3 @@
-```
 import React,{useState} from 'react';
 import {Download,Printer,Plus,Save,ShieldCheck,Users,BarChart3,SlidersHorizontal} from 'lucide-react';
 import {todayBR,addDays,displayDate} from '../domain';
@@ -7,21 +6,9 @@ import {createUser,saveProfile,saveSettings} from '../workspace';
 import {downloadReport,printReport,unitsText} from '../reports';
 
 const fmt=(n,suffix='')=>n==null||!Number.isFinite(Number(n))?'—':Number(n).toLocaleString('pt-BR',{maximumFractionDigits:1})+suffix;
-
-export function Change({ value }) {
-  if (value == null || !Number.isFinite(value)) {
-    return <span>Sem base anterior</span>;
-  }
-
-  const sinal = value > 0 ? '+' : '';
-
-  return (
-    <span>
-      {sinal}{fmt(value)}%
-    </span>
-  );
+export function Change({value}) {
+  return <span>{value == null || !Number.isFinite(Number(value)) ? 'Sem base anterior' : (value > 0 ? '+' : '') + fmt(value) + '%'}</span>;
 }
-
 export default function Admin({profile,profiles,workspace,busy,run,refresh,setNotice}) {
   const [tab,setTab]=useState('Produtividade');
   if(profile.role!=='admin'||!profile.active) return <div className="alert error">Área exclusiva de administradores ativos.</div>;
@@ -47,108 +34,28 @@ function Productivity({releases,profiles,days,busy,run,profile}) {
       {error&&<div className="alert error">{error}</div>}
     </section>
     {report&&<>
-      
-<div className="metrics admin-metrics">
-  {[
-    {
-      label: 'Lotes liberados',
-      value: report.total,
-      comparison: report.comparisons?.lots,
-      unit: '%',
-      lowerIsBetter: false
-    },
-    {
-      label: 'SLA no prazo',
-      value: fmt(report.sla, '%'),
-      comparison: report.comparisons?.sla,
-      unit: 'p.p.',
-      lowerIsBetter: false
-    },
-    {
-      label: 'Tempo médio',
-      value: fmt(report.averageDays, ' dias'),
-      comparison: report.comparisons?.averageDays,
-      unit: '%',
-      lowerIsBetter: true
-    },
-    {
-      label: 'Lotes / dia corrido',
-      value: fmt(report.perCalendarDay),
-      comparison: report.comparisons?.perCalendarDay,
-      unit: '%',
-      lowerIsBetter: false
-    }
-  ].map(({ label, value, comparison, unit, lowerIsBetter }) => {
-    const change = Number.isFinite(comparison?.change) ? comparison.change : null;
-
-    const favorable = change !== null &&
-      (lowerIsBetter ? change < 0 : change > 0);
-
-    const color = change === null || change === 0
-      ? '#94a3b8'
-      : favorable ? '#22c55e' : '#ef4444';
-
-    const previousText = comparison?.previous == null
-      ? 'Sem dados'
-      : label === 'Lotes liberados'
-        ? String(comparison?.previous)
-        : label === 'SLA no prazo'
-          ? fmt(comparison?.previous, '%')
-          : label === 'Tempo médio'
-            ? fmt(comparison?.previous, ' dias')
-            : fmt(comparison?.previous);
-
-    return (
-      <div className="metric" key={label}>
-        <span>{label}</span>
-        <b>{value}</b>
-
-        <div style={{ marginTop: 12 }}>
-          <strong style={{
-            color,
-            fontSize: 15,
-            fontWeight: 700
-          }}>
-            <strong
-  style={{
-    color,
-    fontSize: 15,
-    fontWeight: 700
-  }}
->
-  {change === null
-    ? 'Sem base anterior'
-    : (
-        (change > 0 ? '▲ +' : change < 0 ? '▼ −' : '● ') +
-        fmt(Math.abs(change)) +
-        (unit === '%' ? '%' : ' p.p.')
-      )
-  }
-</strong>
-
-          <small style={{
-            display: 'block',
-            marginTop: 6,
-            color: '#94a3b8',
-            fontSize: 11
-          }}>
-            vs. período anterior
-          </small>
-
-          <small style={{
-            display: 'block',
-            marginTop: 4,
-            color: '#94a3b8',
-            fontSize: 11
-          }}>
-            Anterior: {previousText}
-          </small>
-        </div>
-      </div>
-    );
-  })}
-</div>
-
+      <div className="metrics admin-metrics">{[
+        {label:'Lotes liberados',value:report.total,comparison:report.comparisons?.lots,unit:'%',lowerIsBetter:false,previousUnit:''},
+        {label:'SLA no prazo',value:fmt(report.sla,'%'),comparison:report.comparisons?.sla,unit:' p.p.',lowerIsBetter:false,previousUnit:'%'},
+        {label:'Tempo médio',value:fmt(report.averageDays,' dias'),comparison:report.comparisons?.averageDays,unit:'%',lowerIsBetter:true,previousUnit:' dias'},
+        {label:'Lotes / dia corrido',value:fmt(report.perCalendarDay),comparison:report.comparisons?.perCalendarDay,unit:'%',lowerIsBetter:false,previousUnit:''}
+      ].map(({label,value,comparison,unit,lowerIsBetter,previousUnit})=>{
+        const change=Number.isFinite(comparison?.change)?comparison.change:null;
+        const favorable=change!==null&&(lowerIsBetter?change<0:change>0);
+        const color=change===null||change===0?'#94a3b8':favorable?'#22c55e':'#ef4444';
+        return <div className="metric" key={label}>
+          <span>{label}</span><b>{value}</b>
+          <div style={{marginTop:12}}>
+            <strong style={{color,fontSize:15,fontWeight:700}}>
+              {change===null?'Sem base anterior':(change>0?'▲ +':change<0?'▼ −':'● ')+fmt(Math.abs(change))+unit}
+            </strong>
+            <small style={{display:'block',marginTop:6,color:'#94a3b8',fontSize:11}}>vs. período anterior</small>
+            <small style={{display:'block',marginTop:4,color:'#94a3b8',fontSize:11}}>
+              Anterior: {fmt(comparison?.previous,previousUnit)}
+            </small>
+          </div>
+        </div>;
+      })}</div>
       <section className="panel"><div className="panel-title"><div><h2>Relatório gerencial</h2><p>{displayDate(start)} a {displayDate(end)} · {report.tracked} com autoria V2 · {report.legacy} históricos</p></div><div className="actions"><button disabled={busy} onClick={()=>run(()=>downloadReport(report,{generatedBy:profile.display_name}))}><Download size={16}/>Relatório XLSX</button><button disabled={busy} onClick={()=>run(()=>printReport(report,profile.display_name))}><Printer size={16}/>Imprimir / PDF</button></div></div>
         <div className="report-summary"><div><small>Variação de lotes vs. período anterior</small><strong><Change value={report.change}/></strong><small>{report.previousTotal} lotes de {displayDate(report.previousStart)} a {displayDate(report.previousEnd)}</small></div><div><small>Quantidades liberadas, por unidade</small><strong>{unitsText(report.units)}</strong><small>Unidades diferentes permanecem separadas.</small></div><div><small>Base do SLA</small><strong>{report.onTime} no prazo / {report.withDeadline} com deadline</strong><small>{report.total-report.withDeadline} sem deadline, fora do cálculo.</small></div></div>
         <div className="table-wrap"><table><thead><tr><th>Responsável</th><th>Lotes</th><th>Quantidades</th><th>SLA no prazo</th><th>Tempo médio</th><th>Lotes / dia</th><th>Dias com liberação</th></tr></thead><tbody>{report.ranking.map(r=><tr key={r.id}><td><strong>{r.name}</strong><small className="description">{r.legacy?'Histórico sem vínculo de usuário':'Autoria autenticada'}</small></td><td>{r.lots}</td><td>{unitsText(r.units)}</td><td>{fmt(r.sla,'%')}</td><td>{fmt(r.averageDays,' dias')}</td><td>{fmt(r.perCalendarDay)}</td><td>{r.activeDays}</td></tr>)}</tbody></table>{!report.total&&<p className="empty">Nenhuma liberação neste período.</p>}</div>
@@ -177,4 +84,3 @@ function Settings({settings,busy,run,refresh,setNotice}) {
   const [days,setDays]=useState(settings.comparison_days),[attention,setAttention]=useState(settings.attention_days);
   return <section className="panel help"><h2>Parâmetros dos indicadores</h2><form onSubmit={e=>{e.preventDefault();run(async()=>{await saveSettings(settings,Number(days),Number(attention));await refresh();setNotice('Parâmetros salvos. Os cards já usam a nova janela de comparação.');});}}><div className="form-grid"><label>Dias de comparação dos cards<input type="number" required min="1" max="365" value={days} onChange={e=>setDays(e.target.value)}/></label><label>Janela de atenção (dias)<input type="number" required min="1" max="30" value={attention} onChange={e=>setAttention(e.target.value)}/></label></div><p>Por padrão, a comparação considera <strong>15 dias</strong>. Aumente ou diminua esse número para mudar a janela usada nos percentuais. O resultado é calculado pelos dados; não é um percentual ajustado manualmente.</p><p>Fórmula: (quantidade atual − quantidade anterior) ÷ quantidade anterior × 100. Quando não existe base histórica suficiente ou o denominador é zero, aparece <strong>Sem base</strong>. A janela de atenção não altera o deadline registrado.</p><button className="primary" disabled={busy}><Save size={16}/>Salvar parâmetros</button></form></section>;
 }
-```
