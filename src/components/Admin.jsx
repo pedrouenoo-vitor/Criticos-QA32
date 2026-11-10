@@ -109,10 +109,22 @@ function Productivity({releases,profiles,days,busy,run,profile}) {
             fontSize: 15,
             fontWeight: 700
           }}>
-            {change === null
-              ? 'Sem base anterior'
-              : `${change > 0 ? '▲ +' : change < 0 ? '▼ ' : '● '}${fmt(Math.abs(change))}${unit === '%' ? '%' : ' p.p.'}`}
-          </strong>
+            <strong
+  style={{
+    color,
+    fontSize: 15,
+    fontWeight: 700
+  }}
+>
+  {change === null
+    ? 'Sem base anterior'
+    : (
+        (change > 0 ? '▲ +' : change < 0 ? '▼ −' : '● ') +
+        fmt(Math.abs(change)) +
+        (unit === '%' ? '%' : ' p.p.')
+      )
+  }
+</strong>
 
           <small style={{
             display: 'block',
