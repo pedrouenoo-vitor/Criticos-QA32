@@ -7,9 +7,21 @@ import {createUser,saveProfile,saveSettings} from '../workspace';
 import {downloadReport,printReport,unitsText} from '../reports';
 
 const fmt=(n,suffix='')=>n==null||!Number.isFinite(Number(n))?'—':Number(n).toLocaleString('pt-BR',{maximumFractionDigits:1})+suffix;
-export function Change({value}) {
-  return <span>{value===null?'Sem base anterior':`${value>0?'+':''}${fmt(value)}%`}</span>;
+
+export function Change({ value }) {
+  if (value == null || !Number.isFinite(value)) {
+    return <span>Sem base anterior</span>;
+  }
+
+  const sinal = value > 0 ? '+' : '';
+
+  return (
+    <span>
+      {sinal}{fmt(value)}%
+    </span>
+  );
 }
+
 export default function Admin({profile,profiles,workspace,busy,run,refresh,setNotice}) {
   const [tab,setTab]=useState('Produtividade');
   if(profile.role!=='admin'||!profile.active) return <div className="alert error">Área exclusiva de administradores ativos.</div>;
