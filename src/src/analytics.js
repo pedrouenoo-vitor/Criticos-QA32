@@ -55,12 +55,53 @@ export function productivity(releases,{start,end,actor='all',profiles=[]}={}) {
     sla:withDeadline.length?onTime/withDeadline.length*100:null,
     averageDays:included.length?included.reduce((n,r)=>n+daysLeft(r.released_on,r.received_on),0)/included.length:null,
     perCalendarDay:included.length/calendarDays,ranking,trend:Object.entries(dates).map(([date,lots])=>({date,lots})),releases:included};
+
+export function compareProduction(releases, options) {
+  const report = productivity(releases, options);
+
+  const previous = productivity(releases, {
+    ...options,
+    start: addDays(options.start, -report.calendarDays),
+    end: addDays(options.start, -1)
+  });
+
+  return {
+    ...report,
+
+    previousTotal: previous.total,
+    previousStart: previous.start,
+    previousEnd: previous.end,
+    change: percentChange(report.total, previous.total),
+
+    comparisons: {
+      lots: {
+        previous: previous.total,
+        change: percentChange(report.total, previous.total)
+      },
+      sla: {
+        previous: previous.sla,
+        change: report.sla === null || previous.sla === null
+          ? null
+          : report.sla - previous.sla
+      },
+      averageDays: {
+        previous: previous.averageDays,
+        change: report.averageDays === null ||
+          previous.averageDays === null
+          ? null
+          : percentChange(report.averageDays, previous.averageDays)
+      },
+      perCalendarDay: {
+        previous: previous.perCalendarDay,
+        change: percentChange(
+          report.perCalendarDay,
+          previous.perCalendarDay
+        )
+      }
+    }
+  };
 }
-export function compareProduction(releases,options) {
-  const report=productivity(releases,options);
-  const previous=productivity(releases,{...options,start:addDays(options.start,-report.calendarDays),end:addDays(options.start,-1)});
-  return {...report,previousTotal:previous.total,previousStart:previous.start,previousEnd:previous.end,change:percentChange(report.total,previous.total)};
-}
+
 export const METHOD=[
   'Lotes liberados: ciclos de liberação não anulados, pela data informada. Reabrir anula o ciclo anterior; liberar novamente cria um novo ciclo.',
   'Autoria V2: usuário autenticado que confirmou a liberação, gravado pelo banco. Nome digitado e proprietário do item não substituem essa autoria.',
